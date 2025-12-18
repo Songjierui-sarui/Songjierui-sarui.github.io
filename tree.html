@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圣诞快乐茜茜公主</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #000;
+        }
+        canvas {
+            border: 1px solid #333;
+            background-color: #000;
+            width: 100%;  /* 占满屏幕宽度 */
+            max-width: 800px;  /* 最大不超过原尺寸 */
+            height: auto;  /* 高度自适应 */
+            object-fit: contain;  /* 保持比例，不拉伸 */
+        }
+    </style>
+</head>
+<body>
+    <canvas id="christmasCanvas" width="800" height="900"></canvas>
+
+    <script>
+        const canvas = document.getElementById('christmasCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 设置初始状态
+        let x = canvas.width / 2;
+        let y = canvas.height;
+        let angle = 0;
+        let lineWidth = 5;
+        let strokeColor = '#006400';
+        let fillColor = null;
+
+        // 工具函数
+        function degToRad(degrees) {
+            return degrees * Math.PI / 180;
+        }
+
+        function moveTo(xPos, yPos) {
+            x = xPos;
+            y = yPos;
+        }
+
+        function lineTo(xPos, yPos) {
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(xPos, yPos);
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = lineWidth;
+            ctx.stroke();
+            x = xPos;
+            y = yPos;
+        }
+
+        function forward(length) {
+            const rad = degToRad(angle);
+            const newX = x + Math.cos(rad) * length;
+            const newY = y - Math.sin(rad) * length; // y轴向下为正，所以用减号
+            lineTo(newX, newY);
+        }
+
+        function turn(degrees) {
+            angle = (angle + degrees) % 360;
+        }
+
+        function left(degrees) {
+            turn(-degrees);
+        }
+
+        function right(degrees) {
+            turn(degrees);
+        }
+
+        function setColor(stroke, fill) {
+            strokeColor = stroke;
+            fillColor = fill;
+        }
+
+        function beginFill() {
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        function endFill() {
+            ctx.closePath();
+            if (fillColor) {
+                ctx.fillStyle = fillColor;
+                ctx.fill();
+            }
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = lineWidth;
+            ctx.stroke();
+        }
+
+        function circle(radius) {
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            if (fillColor) {
+                ctx.fillStyle = fillColor;
+                ctx.fill();
+            }
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = lineWidth;
+            ctx.stroke();
+        }
+
+        function writeText(text, font, xPos, yPos) {
+            ctx.font = font;
+            ctx.fillStyle = strokeColor;
+            ctx.fillText(text, xPos, yPos);
+        }
+
+        // 绘制彩灯
+        function drawlight() {
+            if (Math.random() < 1/150) { // 1/150的概率
+                setColor('tomato', 'tomato');
+                circle(3);
+            } else if (Math.random() < 1/30) {
+                setColor('orange', 'orange');
+                circle(4);
+            } else if (Math.random() < 1/50) {
+                setColor('blue', 'blue');
+                circle(2);
+            } else if (Math.random() < 1/30) {
+                setColor('white', 'white');
+                circle(4);
+            }
+            // 恢复树枝颜色
+            setColor('darkgreen', null);
+        }
+
+        // 绘制树
+        function tree(d, s) {
+            if (d <= 0) return;
+            forward(s);
+            tree(d - 1, s * 0.8);
+            right(120);
+            tree(d - 3, s * 0.5);
+            drawlight();
+            right(120);
+            tree(d - 3, s * 0.5);
+            right(120);
+            forward(-s); // 后退
+        }
+
+        // 绘制雪人
+        function drawsnowman(n, m, a, b) {
+            // 保存当前状态
+            const saveX = x;
+            const saveY = y;
+            const saveAngle = angle;
+            const saveStroke = strokeColor;
+            const saveFill = fillColor;
+            
+            moveTo(n, m);
+            setColor('white', 'white');
+            angle = 0;
+            
+            // 底部大球
+            ctx.beginPath();
+            ctx.arc(n, m, b, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            
+            // 顶部小球
+            ctx.beginPath();
+            ctx.arc(n, m - b - a, a, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            
+            // 眼睛
+            setColor('black', 'black');
+            moveTo(n - a/4, m - b - a);
+            circle(2);
+            moveTo(n + a/4, m - b - a);
+            circle(2);
+            
+            // 嘴巴
+            moveTo(n - 3, m - b - a/2);
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + 6, y);
+            ctx.stroke();
+            
+            // 纽扣
+            setColor('red', 'red');
+            moveTo(n, m - b/4);
+            circle(2);
+            
+            setColor('yellow', 'yellow');
+            moveTo(n, m - b/2);
+            circle(2);
+            
+            setColor('orange', 'orange');
+            moveTo(n, m - (3*b)/4);
+            circle(2);
+            
+            // 恢复状态
+            moveTo(saveX, saveY);
+            angle = saveAngle;
+            setColor(saveStroke, saveFill);
+        }
+
+        // 绘制雪花
+        function drawsnow() {
+            const saveStroke = strokeColor;
+            const saveFill = fillColor;
+            
+            setColor('white', 'white');
+            
+            for (let i = 0; i < 80; i++) {
+                const xPos = Math.random() * 800 - 100;
+                const yPos = Math.random() * 450 - 100;
+                const snowsize = Math.random() * 4 + 1;
+                const dens = 6;
+                
+                moveTo(xPos, yPos);
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                
+                for (let j = 0; j < dens; j++) {
+                    const rad = degToRad(j * 60);
+                    const endX = x + Math.cos(rad) * snowsize;
+                    const endY = y - Math.sin(rad) * snowsize;
+                    ctx.lineTo(endX, endY);
+                    ctx.moveTo(x, y);
+                }
+                
+                ctx.stroke();
+            }
+            
+            // 恢复状态
+            setColor(saveStroke, saveFill);
+        }
+
+        // 主绘制函数
+        function drawChristmasScene() {
+            // 清除画布
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 初始设置 ★ 关键修改：调整圣诞树初始y坐标，向上移动150px（可自行改数值）
+            moveTo(canvas.width / 2, canvas.height - 300); // 原canvas.height - 100 → 减250，向上移150
+            angle = 90; // 向上
+            lineWidth = 5;
+            
+            // 绘制星星
+            setColor('orange', 'yellow');
+            forward(250);
+            beginFill();
+            left(126);
+            
+            const n = 100;
+            for (let i = 0; i < 5; i++) {
+                forward(n / 5);
+                right(144);
+                forward(n / 5);
+                left(72);
+            }
+            endFill();
+            right(126);
+            
+            // 绘制树干和树枝
+            setColor('darkgreen', null);
+            forward(-n * 4.8);
+            
+            // 绘制树
+            tree(13, 100);
+            forward(-50);
+            
+            // 绘制底部装饰
+            for (let i = 0; i < 80; i++) {
+                const a = 200 - 400 * Math.random();
+                const b = 10 - 20 * Math.random();
+                
+                // 保存当前位置
+                const saveX = x;
+                const saveY = y;
+                const saveAngle = angle;
+                
+                forward(b);
+                left(90);
+                forward(a);
+                
+                if (Math.random() > 0.5) {
+                    setColor('tomato', 'tomato');
+                } else {
+                    setColor('wheat', 'wheat');
+                }
+                circle(2);
+                
+                // 恢复位置
+                forward(-a);
+                right(90);
+                forward(-b);
+                x = saveX;
+                y = saveY;
+                angle = saveAngle;
+            }
+            
+            // 绘制雪人 ★ 同步调整雪人位置（向上移150px，和圣诞树对应）
+            drawsnowman(150, canvas.height - 50, 20, 30); // 原canvas.height - 150 → 减300
+            drawsnowman(100, canvas.height - 50, 30, 40); // 原canvas.height - 150 → 减300
+            
+            // 绘制文字
+            setColor('red', null);
+            writeText("圣诞快乐茜茜公主！", "bold 40px 'Microsoft YaHei UI', '幼圆', '黑体', cursive", 400, 150);
+            
+            // 绘制雪花
+            drawsnow();
+        }
+
+        // 开始绘制
+        drawChristmasScene();
+    </script>
+</body>
+</html>
