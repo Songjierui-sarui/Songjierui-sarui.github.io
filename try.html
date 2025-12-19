@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>圣诞快乐茜茜公主</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000c18; /* 更深邃的夜空 */
+            font-family: 'Microsoft YaHei', sans-serif;
+            touch-action: none; /* 禁止手机双击缩放和滚动 */
+            -webkit-tap-highlight-color: transparent; /* 去除点击高亮块 */
+        }
+        canvas {
+            display: block;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            z-index: 10;
+        }
+        .animate-tip {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 80vh; /* 放在屏幕下方 */
+            font-size: 14px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.05); }
+            100% { opacity: 0.3; transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div id="ui-layer">
+        <div class="animate-tip">👆哪怕只是轻轻点击，也会有奇迹发生✨</div>
+    </div>
+    <canvas id="christmasCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('christmasCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 离屏Canvas用于缓存树，避免每一帧重复计算分形，极大省电
+        const bgCanvas = document.createElement('canvas');
+        const bgCtx = bgCanvas.getContext('2d');
+
+        let width, height, scale;
+        let particles = []; // 烟花粒子
+        let snows = [];     // 雪花
+        let lights = [];    // 树上的灯
+        let stars = [];     // 天上的星星
+
+        // Turtle 绘图变量
+        let tx, ty, tangle;
+
+        // --- 初始化与适配系统 ---
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            
+            // 设置高清画布 (防止手机上模糊)
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.scale(dpr, dpr);
+            
+            // 离屏Canvas也要对应设置
+            bgCanvas.width = width * dpr;
+            bgCanvas.height = height * dpr;
+            bgCtx.scale(dpr, dpr);
+
+            // 计算缩放比例：基于屏幕宽度，保证在窄屏手机上树不会太大
+            // 如果屏幕宽度小于500（手机），则树的大小根据宽度动态调整
+            scale = Math.min(width / 500, 1) * 0.9; 
+
+            drawStaticScene();
+        }
+
+        // --- 绘图工具函数 ---
+        function t_moveTo(x, y) { tx = x; ty = y; }
+        function t_left(deg) { tangle -= deg; }
+        function t_right(deg) { tangle += deg; }
+        function t_forward(len, context, draw = true) {
+            const rad = tangle * Math.PI / 180;
+            const newX = tx + Math.cos(rad) * len;
+            const newY = ty - Math.sin(rad) * len;
+            if (draw) {
+                context.beginPath();
+                context.moveTo(tx, ty);
+                context.lineTo(newX, newY);
+                context.stroke();
+            }
+            tx = newX; ty = newY;
+        }
+
+        // 递归画树
+        function tree(d, s) {
+            if (d <= 0) return;
+            t_forward(s, bgCtx);
+            tree(d - 1, s * 0.82); // 0.82系数让树更茂密
+            t_right(120);
+            tree(d - 3, s * 0.5);
+            
+            // 在分支处记录彩灯位置
+            if (d > 2 && Math.random() < 0.15) {
+                lights.push({
+                    x: tx, y: ty,
+                    color: Math.random() > 0.6 ? '#ff4757' : (Math.random() > 0.5 ? '#ffa502' : '#ffffff'),
+                    offset: Math.random() * Math.PI * 2
+                });
+            }
+
+            t_right(120);
+            tree(d - 3, s * 0.5);
+            t_right(120);
+            t_forward(-s, bgCtx, false);
+        }
+
+        // --- 绘制静态场景 (只执行一次) ---
+        function drawStaticScene() {
+            lights = []; 
+            bgCtx.clearRect(0, 0, width, height);
+
+            // 1. 确定树的中心位置 (屏幕底部偏上)
+            const treeBaseX = width / 2;
+            const treeBaseY = height - 100 * scale - 50; 
+
+            // 2. 画树
+            bgCtx.strokeStyle = '#2f3640'; // 树干深色
+            bgCtx.lineWidth = 4 * scale;
+            bgCtx.lineCap = 'round';
+            
+            tx = treeBaseX; ty = treeBaseY; tangle = 90;
+            // 只有这里用绿色画线
+            bgCtx.strokeStyle = '#006400';
+            tree(13, 90 * scale); 
+
+            // 3. 画大星星
+            bgCtx.save();
+            bgCtx.translate(treeBaseX, treeBaseY - 420 * scale);
+            bgCtx.scale(scale, scale);
+            bgCtx.beginPath();
+            bgCtx.fillStyle = '#ffec99';
+            bgCtx.shadowColor = '#ffec99';
+            bgCtx.shadowBlur = 20;
+            for(let i=0; i<5; i++){
+                bgCtx.lineTo(Math.cos((18+i*72)/180*Math.PI)*25, -Math.sin((18+i*72)/180*Math.PI)*25);
+                bgCtx.lineTo(Math.cos((54+i*72)/180*Math.PI)*10, -Math.sin((54+i*72)/180*Math.PI)*10);
+            }
+            bgCtx.fill();
+            bgCtx.restore();
+
+            // 4. 画雪人 (左右各一个)
+            drawSnowMan(treeBaseX - 100 * scale, treeBaseY + 20, 0.7 * scale);
+            drawSnowMan(treeBaseX + 100 * scale, treeBaseY + 20, 0.6 * scale);
+
+            // 5. 初始化雪花
+            snows = [];
+            for(let i=0; i<100; i++) {
+                snows.push(createSnow());
+            }
+        }
+
+        function drawSnowMan(x, y, s) {
+            bgCtx.save();
+            bgCtx.translate(x, y);
+            bgCtx.scale(s, s);
+            bgCtx.fillStyle = 'white';
+            bgCtx.beginPath(); bgCtx.arc(0, 0, 30, 0, Math.PI*2); bgCtx.fill(); // 身
+            bgCtx.beginPath(); bgCtx.arc(0, -45, 20, 0, Math.PI*2); bgCtx.fill(); // 头
+            bgCtx.fillStyle = 'tomato'; bgCtx.beginPath(); bgCtx.arc(0, -15, 3, 0, Math.PI*2); bgCtx.fill(); // 纽扣
+            bgCtx.restore();
+        }
+
+        function createSnow() {
+            return {
+                x: Math.random() * width,
+                y: Math.random() * height,
+                r: Math.random() * 2 + 1,
+                v: Math.random() * 1 + 0.5
+            };
+        }
+
+        // --- 动画系统 ---
+        
+        // 烟花粒子类
+        class Firework {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.life = 1;
+                this.color = `hsl(${Math.random()*360}, 100%, 70%)`;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 4 + 2;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.05; // 重力
+                this.life -= 0.02;
+                this.vx *= 0.95; // 阻力
+                this.vy *= 0.95;
+            }
+            draw() {
+                ctx.globalAlpha = this.life;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 3, 0, Math.PI*2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        function animate(now) {
+            ctx.clearRect(0, 0, width, height);
+            
+            // 1. 绘制背景层
+            ctx.drawImage(bgCanvas, 0, 0, width, height);
+
+            // 2. 绘制闪烁的彩灯 (霓虹效果)
+            lights.forEach(l => {
+                const flicker = Math.sin(now * 0.003 + l.offset);
+                if (flicker > 0) {
+                    ctx.beginPath();
+                    ctx.arc(l.x, l.y, 3 * scale + flicker * 2, 0, Math.PI*2);
+                    ctx.fillStyle = l.color;
+                    ctx.shadowColor = l.color;
+                    ctx.shadowBlur = 10;
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
+            });
+
+            // 3. 绘制文字 (位置固定在上方)
+            const fontSize = Math.min(width / 10, 40); // 字体大小随屏幕变
+            ctx.font = `bold ${fontSize}px "Microsoft YaHei", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // 文字光晕
+            const glow = Math.abs(Math.sin(now * 0.001));
+            ctx.shadowColor = '#e84393';
+            ctx.shadowBlur = 15 * glow;
+            ctx.fillStyle = '#ff7675';
+            ctx.fillText("圣诞快乐茜茜公主！", width / 2, height * 0.15);
+            ctx.shadowBlur = 0;
+
+            // 4. 雪花下落
+            ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+            snows.forEach(s => {
+                s.y += s.v;
+                s.x += Math.sin(now * 0.001 + s.y*0.01) * 0.3;
+                if(s.y > height) {
+                    s.y = -5;
+                    s.x = Math.random() * width;
+                }
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.r * scale, 0, Math.PI*2);
+                ctx.fill();
+            });
+
+            // 5. 烟花处理
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.update();
+                p.draw();
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // --- 交互事件 ---
+        function createExplosion(x, y) {
+            // 震动反馈 (如果设备支持)
+            if (navigator.vibrate) navigator.vibrate(15);
+            
+            // 生成30个粒子
+            for(let i=0; i<30; i++) {
+                particles.push(new Firework(x, y));
+            }
+            
+            // 如果点在树附近，额外加一点彩灯闪烁 (视觉欺骗，其实是加个亮斑)
+            if (y > height/2) {
+                // 可以在这里加特殊音效逻辑
+            }
+        }
+
+        // 统一处理触摸和点击
+        function handleInput(e) {
+            e.preventDefault(); // 防止双击缩放
+            let clientX, clientY;
+            
+            if (e.type === 'touchstart') {
+                // 多点触控支持：遍历所有触摸点
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    createExplosion(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+                }
+            } else {
+                createExplosion(e.clientX, e.clientY);
+            }
+        }
+
+        window.addEventListener('resize', resize);
+        window.addEventListener('touchstart', handleInput, {passive: false});
+        window.addEventListener('mousedown', handleInput);
+
+        // 启动
+        resize();
+        animate(0);
+
+    </script>
+</body>
+</html>
